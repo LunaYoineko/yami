@@ -1,53 +1,6 @@
-import std/[algorithm, sequtils, random, strutils]
+import std/[sequtils, random, strutils]
 import regex
 
-let diceNames* = [
-    ":mahjong_dice1:",
-    ":mahjong_dice2:",
-    ":mahjong_dice3:",
-    ":mahjong_dice4:",
-    ":mahjong_dice5:",
-    ":mahjong_dice6:"
-]
-
-proc rollDice*(): string =
-    let resp = [
-      "サイコロを振ったよ: " & diceNames[(rand(5) + 1) - 1] & " だった、、、よ",
-      "サイコロを振ったよ、、、ごめん机の下に入っちゃた、、、",
-      "サイコロ「今日は非番やで」",
-      "サイコロなくしちゃった、、、",
-      "サイコロテーブルの下でかくれんぼしてるみたい",
-      "サイコロ「6やで」",
-      "サイコロを振ったよ:[" & $(rand(1023) + 1) & "]だったよ"
-    ]
-    return resp.sample()
-    
-proc chinchiro*(): string =
-    var dice = [
-        rand(5) + 1,
-        rand(5) + 1,
-        rand(5) + 1
-    ]
-    dice.sort()
-    let a = dice[0]
-    let b = dice[1]
-    let c = dice[2]
-    
-    if dice == [1, 1, 1]:
-      return "出目は " & diceNames[0] & diceNames[0] & diceNames[0] & "\nピンゾロだったよ！"
-    elif a == b and b == c:
-      return "出目は" & diceNames[a - 1] & " " & diceNames[b - 1] & " " & diceNames[c - 1] & " \nゾロ目だよ"
-    elif dice == [4, 5, 6]:
-      return "出目は " & diceNames[a - 1] & " " & diceNames[b - 1] & " " & diceNames[c - 1] & " \nシゴロだよ、、、"
-    elif dice == [1, 2, 3]:
-      return "出目は " & diceNames[a - 1] & " " & diceNames[b - 1] & " " & diceNames[c - 1] & " \nヒフミだったよ"
-    elif a == b:
-      return "出目は " & diceNames[a - 1] & " " & diceNames[b - 1] & " " & diceNames[c - 1] & " \n " & diceNames[c - 1] & " の目、、、"
-    elif b == c:
-      return "出目は " & diceNames[a - 1] & " " & diceNames[b - 1] & " " & diceNames[c - 1] & " \n " & diceNames[a - 1] & " の目、、、"
-    else:
-      return "出目は " & diceNames[a - 1] & " " & diceNames[b - 1] & " " & diceNames[c - 1] & " \nだったよ、、、\n役無し、、、だね"
-    
 proc tellFortune*(): string =
     let comments = [
       ("大吉", "最高の一日になりそう！"),

@@ -2,7 +2,7 @@ import std/[asyncdispatch, json, options, os, random, sets, times, strutils]
 import ws, regex
 import dotenv
 import nimstr
-import function, response, weather
+import function, response, weather, dice, slot
 
 load()
 
@@ -97,6 +97,7 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
     return  
 
   var replyText = ""
+  var replyTags = newJArray()
   var isSayingGoodnight = false
   var replies: seq[string] = @[]
 
@@ -104,13 +105,26 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
     replyText = neutral.sample()
   else:
     if "サイコロ" in cmd or "ダイス" in cmd or "dice" in cmd:
-      replies.add(rollDice())
+      if "絵文字無し" in cmd:
+          replies.add(rollDice(false))
+      else:
+          replies.add(rollDice(true))
+      
     if "確サイ" in cmd:
       replies.add("サイコロを振ったよ、、、 " & diceNames[(rand(5) + 1) - 1] & " だったよ")
+      
     if "チンチロ" in cmd or "ちんちろ" in cmd:
-      replies.add(chinchiro())
+      if "絵文字無し" in cmd:
+          replies.add(chinchiro(false))
+      else:
+          replies.add(chinchiro(true))
+  
+    if "スロット" in cmd:
+      replies.add(playSlot())
+      
     if "ランダム" in cmd or "乱数" in cmd:
       replies.add(getNostradomResult(cmd))
+      
     if "占い" in cmd or "おみくじ" in cmd or "運勢" in cmd:
       replies.add(tellFortune())
 
@@ -161,12 +175,17 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
   let triggerType = if isMentioned: "メンション" else: "キーワード"
   echo "[", triggerType, "] 抽出された命令: '", cmd, "' (区切り: '", delimiter, "')"
 
+  if "サイコロ" in cmd or "ダイス" in cmd or "確サイ" in cmd or "dice" in cmd or "チンチロ" in cmd or "ちんちろ" in cmd and "絵文字無し" notin cmd:
+      
+    for t in diceNames:
+        replyTags.add(%*["emoji", t.replace(":",""), "https://awayuki.github.io/emoji/" & t.replace(":","").replace("_","-") & ".png"])
+  
   let replyTarget = ReplyTarget(
     eventId: event.id,
     relayUrl: relay.url,
     authorPubkey: event.pubkey
   )
-  discard await relay.sendReply(myKeypair.seckeyHex, replyText, replyTarget)
+  discard await relay.sendRootReply(myKeypair.seckeyHex, replyText, replyTarget, replyTags)
 
   if isSayingGoodnight:
     botActive[] = false
