@@ -1,0 +1,5 @@
+services:
+    yami:
+        build: .
+        container_name: yami
+        restart: always
