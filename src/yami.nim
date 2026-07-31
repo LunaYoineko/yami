@@ -2,7 +2,7 @@ import std/[asyncdispatch, json, options, os, random, sets, times, strutils]
 import ws, regex
 import dotenv
 import nimstr
-import function, response, weather, dice, slot
+import function, response, weather, dice, slot, profile
 
 load()
 
@@ -84,8 +84,9 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
   if not matched or promptText == "":
     return
 
+  await relay.getDName(event.pubkey)
+  
   let cmd = promptText.strip()
-
   if targetHexPubkey != "" and event.pubkey == targetHexPubkey:
     if "おはよう" in cmd:
       botActive[] = true
@@ -142,38 +143,61 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
 
     if "選んで" in cmd or "どっち" in cmd or "どれ" in cmd or "ルーレット" in cmd:
       replies.add(chooseOption(cmd))
+      
     if "おはよう" in cmd:
       replies.add(goodmorning.sample())
+      
     if "こんにちは" in cmd:
       replies.add(hello.sample())
+      
     if "こんばんは" in cmd:
       replies.add(goodevening.sample())
+      
     if "おやすみ" in cmd:
       replies.add(goodnight.sample())
       if targetHexPubkey != "" and event.pubkey == targetHexPubkey:
         isSayingGoodnight = true
+        
     if "疲れた" in cmd:
       replies.add(tired.sample())
+      
     if ("しても" in cmd or "でも" in cmd or "ても" in cmd) and "いい？" in cmd:
       let resp = [
         "いいと思う、、よ？",
         "絶対、、、だめ"
       ]
       replies.add(resp.sample())
+      
+    if "きょもなん" in cmd:
+      replies.add(kyomonan.sample())
+      
+    if "ごごなん" in cmd:
+      replies.add(gogonan.sample())
+      
     if "自己紹介" in cmd:
       let resp = "やみです、、、\nあまり役に立てないと思うけど\nよろしくお願いします、、、"
       replies.add(resp)
+      
     if "できること" in cmd:
       let resp = "[ダイス]といわれたらサイコロを振るよ\n[占い]といわれたら今日の運勢を占うよ\n最小値と最大値を決めて[ランダム]と言ったらその中からやみが数字を選んであげるよ\n選択肢を[, | 、 | と | か]で区切って指定して[どれ]と言ったらその中から代わりに決めてあげる"
       replies.add(resp)
 
+    if "中身" in cmd or "正体" in cmd or "ソース" in cmd:
+      replies.add("恥ずかしいな///\nhttps://github.com/LunaYoineko/yami")
+      
+    if "プロフ取得" in cmd:
+      if perseProf.display_name != "君":
+        replies.add("あなたは" & perseProf.display_name & "だね、、、\n間違ってたらごめん、、、")
+      else:
+        replies.add("君はだれ？、、、")
+      
     if replies.len > 0:
       replyText = replies.join("\n")
     else:
       replyText = unknown.sample()
 
   let triggerType = if isMentioned: "メンション" else: "キーワード"
-  echo "[", triggerType, "] 抽出された命令: '", cmd, "' (区切り: '", delimiter, "')"
+  echo "[", triggerType, "] 抽出された命令: '", cmd, "' (区切り: '", delimiter, "')\n返答: " & replyText
 
   if "サイコロ" in cmd or "ダイス" in cmd or "確サイ" in cmd or "dice" in cmd or "チンチロ" in cmd or "ちんちろ" in cmd and "絵文字無し" notin cmd:
       

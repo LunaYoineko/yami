@@ -1,3 +1,5 @@
 /.env
 /nimble.paths
 /yami
+nimble.develop
+nimbledeps

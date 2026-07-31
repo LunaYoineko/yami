@@ -1,5 +1,6 @@
 import std/[sequtils, random, strutils]
 import regex
+import profile
 
 proc tellFortune*(): string =
     let comments = [
@@ -13,10 +14,21 @@ proc tellFortune*(): string =
       ("つねきち", "詐欺にあうかもしれません"),
       ("たぬきち", "ローン上乗せの被害にあいます")
     ]
-    let luckyItems = ["コーヒー", "ミントタブレット", "青いペン", "散歩", "好きな音楽", "猫の動画", "1億円", "nostr", "神様"]
+    let luckyItems = [
+        "コーヒー",
+        "ミントタブレット",
+        "青いペン",
+        "散歩",
+        "好きな音楽",
+        "猫の動画",
+        "1億円",
+        "nostr",
+        "神様"
+    ]
+    
     let (omikuji, comment) = comments.sample()
     let item = luckyItems.sample()
-    return "今日のやみ占いだよ！\n【" & omikuji & "】\n" & comment & "\nラッキーアイテム: " & item
+    return "今日のやみ占いだよ！\n" & perseProf.display_name & "の運勢は、、、\n【" & omikuji & "】\n" & comment & "\nラッキーアイテム: " & item
     
 proc chooseOption*(t: string): string =
     var cleanText = t.multiReplace([("選んで", ""), ("どれ", ""), ("どっち", ""), ("ルーレット", ""), ("決めて", ""), ("choice", ""), ("?", "")])

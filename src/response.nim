@@ -1,4 +1,5 @@
 import std/[random, times]
+import profile
 
 let neutral* = [
     "よんだ？、、、",
@@ -11,16 +12,16 @@ let neutral* = [
 ]
 
 let goodmorning* = [
-    "おはよう",
-    "今日もいい一日でありますように",
+    "おはよう、" & perseProf.display_name & "、、、",
+    perseProf.display_name & "の\n今日がいい一日でありますように",
     "よく眠れた？",
-    "今日も、、、よろしくね",
-    "もう起きてたよ。待ってた",
+    perseProf.display_name & "\n今日も、、、よろしくね",
+    "もう起きてたよ。\n" & perseProf.display_name & "を待ってた",
     "今日は早いね"
 ]
 
 let hello* = [
-    "こんにちは",
+    "こんにちは、\n" & perseProf.display_name,
     "待ってた、、、よ？",
     "こんにちは、、、今日は何をしていたのかな？",
     "もう来ないかと思ってた"
@@ -37,15 +38,32 @@ let goodevening* = [
 
 let goodnight* = [
     "おやすみ、、、",
+    perseProf.display_name & "\nおやすみ",
     "また明日ね",
     "もう寝ちゃうの？、、、\nおやすみ、、、"
 ]
 
 let tired* = [
-    "お疲れ様、、、",
+    perseProf.display_name & "\nお疲れ様、、、",
     "ゆっくり休んで、、、ね",
     "無理しないでね",
     "お茶、入れてくる"
+]
+
+let kyomonan* = [
+    "きょうもなんとか",
+    "今日も一日頑張ろうね",
+    perseProf.display_name & "を応援してるよ、、、",
+    "きょもなん！",
+    "今日も何とか生き残ろうね、、、"
+]
+
+let gogonan* = [
+    "ごごもなんとか",
+    "午後も頑張ろう",
+    "やみはお昼寝するけど、、、" & perseProf.display_name & "は頑張ってね！",
+    "ごごなん！",
+    "午後も何とか生き残ろうね"
 ]
 
 let unknown* = [
