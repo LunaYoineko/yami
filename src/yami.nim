@@ -10,7 +10,7 @@ let nsec = getEnv("NOSTR_NSEC")
 let targetKeyword = "やみ"
 let targetNpub = getEnv("TEST_TARGET_NPUB")
 
-let commandPattern = re2("(?si)" & targetKeyword & r"([,、 \s])(.*)")
+let commandPattern = re2("(?si)" & targetKeyword & r"(?:([,、 \s]+)(.*))?$")
 let mentionPattern = re2(r"(?si)^(?:nostr:npub1[a-z0-9]+|@\w+|@[^\s,、 ]+)([,、 \s ]?)(.*)")
 
 proc parseEventJson(j: JsonNode): Option[NostrEvent] =
@@ -81,7 +81,7 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
       promptText = text[m.group(1)]
       matched = true
 
-  if not matched or promptText == "":
+  if not matched:
     return
 
   await relay.getProf(event.pubkey)
@@ -140,6 +140,16 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
         break
     if hasPraise:
       replies.add("、、、ありがとう")
+      
+    let negativeKeywords = ["できてない", "だめ", "使えない", "終わってない", "役に立たない", "きらい", "嫌い", "無能"]
+    var hasNegative = false
+    for kw in negativeKeywords:
+        if kw in cmd.toLower():
+            hasNegative = true
+            break
+            
+    if hasNegative:
+        replies.add(negative.sample())
 
     if "選んで" in cmd or "どっち" in cmd or "どれ" in cmd or "ルーレット" in cmd:
       replies.add(chooseOption(cmd))
@@ -167,6 +177,9 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
         "絶対、、、だめ"
       ]
       replies.add(resp.sample())
+      
+    if "やって" in cmd or "やっといて" in cmd:
+        replies.add(yatte.sample())
       
     if "きょもなん" in cmd:
       replies.add(kyomonan.sample())
