@@ -84,7 +84,7 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
   if not matched or promptText == "":
     return
 
-  await relay.getDName(event.pubkey)
+  await relay.getProf(event.pubkey)
   
   let cmd = promptText.strip()
   if targetHexPubkey != "" and event.pubkey == targetHexPubkey:
@@ -186,10 +186,45 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
       replies.add("恥ずかしいな///\nhttps://github.com/LunaYoineko/yami")
       
     if "プロフ取得" in cmd:
+      if "nostr:npub1" in cmd:
+        let text = cmd.replace("プロフ取得","").strip()
+        let nppattern = re2("(nostr:npub1[02-9ac-hj-np-z]+)")
+        var npub: RegexMatch2
+        if text.match(nppattern, npub):
+            let pubkey = text[npub.group(0)].replace("nostr:","")
+            let pubkeyHex = fromBech32(pubkey).hex
+            await relay.getProf(pubkeyHex)
+      elif "nostr:npub1" notin cmd and "npub1" in cmd:
+        let text = cmd.replace("プロフ取得","").strip()
+        let nppattern = re2("(npub1[02-9ac-hj-np-z]+)")
+        var npub: RegexMatch2
+        if text.match(nppattern, npub):
+            let pubkey = fromBech32(text[npub.group(0)]).hex
+            await relay.getProf(pubkey)    
+        
       if perseProf.display_name != "君":
-        replies.add("あなたは" & perseProf.display_name & "だね、、、\n間違ってたらごめん、、、")
+        replies.add("あなたは " & perseProf.display_name & " だね、、、\n")
+        replies.add("ユーザー名は " & perseProf.name & " で、\n")
+        if perseProf.website != "":
+            replies.add(perseProf.website & " を公開していて、、、\n")
+        else:
+            replies.add("特にウェブサイトは公開していなくて、、、\n")
+        if perseProf.lightning_address != "":
+            replies.add(perseProf.lightning_address & " が設定されていて、、、\n")
+        else:
+            replies.add("お金は受け取らないスタンスで、、、\n")
+        if perseProf.nip05 != "":
+            replies.add(perseProf.nip05 & " を設定していて、、、\n")
+        else:
+            replies.add("特にNIP05を設定してなくて、、、\n")
+        if perseProf.about.len > 100:
+            replies.add("自己紹介が長い\n")
+        else:
+            replies.add("自己紹介が短い\n")
+        replies.add("人であってるかな？、、、\n")
+        replies.add("間違ってたらごめん、、、")
       else:
-        replies.add("君はだれ？、、、")
+        replies.add("ごめん\n君はだれ？、、、")
       
     if replies.len > 0:
       replyText = replies.join("\n")
