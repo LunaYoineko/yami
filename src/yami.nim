@@ -13,7 +13,7 @@ let targetNpub = getEnv("TEST_TARGET_NPUB")
 let commandPattern = re2("(?si)" & targetKeyword & r"(?:([,、 \s]+)(.*))?$")
 let mentionPattern = re2(r"(?si)^(?:nostr:npub1[a-z0-9]+|@\w+|@[^\s,、 ]+)([,、 \s ]?)(.*)")
 
-var botActive = true
+var botActive* = true
 
 proc parseEventJson(j: JsonNode): Option[NostrEvent] =
   try:
@@ -166,7 +166,7 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
       replies.add(goodevening.sample())
       
     if "おやすみ" in cmd:
-      replies.add(goodnight.sample())
+      replies.add(goodnight.sample() & "\nbotActive: " & $botActive)
       if targetHexPubkey != "" and event.pubkey == targetHexPubkey:
         isSayingGoodnight = true
         
