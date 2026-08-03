@@ -13,6 +13,8 @@ let targetNpub = getEnv("TEST_TARGET_NPUB")
 let commandPattern = re2("(?si)" & targetKeyword & r"(?:([,、 \s]+)(.*))?$")
 let mentionPattern = re2(r"(?si)^(?:nostr:npub1[a-z0-9]+|@\w+|@[^\s,、 ]+)([,、 \s ]?)(.*)")
 
+var botActive = true
+
 proc parseEventJson(j: JsonNode): Option[NostrEvent] =
   try:
     if j.kind != JArray: return none(NostrEvent)
@@ -49,7 +51,7 @@ proc parseEventJson(j: JsonNode): Option[NostrEvent] =
   except:
     return none(NostrEvent)
 
-proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair, targetHexPubkey: string, botActive: ref bool) {.async.} =
+proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair, targetHexPubkey: string) {.async.} =
   if event.pubkey == myKeypair.pubkeyHex:
     return
 
@@ -89,12 +91,12 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
   let cmd = promptText.strip()
   if targetHexPubkey != "" and event.pubkey == targetHexPubkey:
     if "おはよう" in cmd:
-      botActive[] = true
+      botActive = true
       echo "やみを開始しました"
     elif "おやすみ" in cmd:
       discard
 
-  if not botActive[]:
+  if not botActive:
     return  
 
   var replyText = ""
@@ -260,7 +262,7 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
   discard await relay.sendRootReply(myKeypair.seckeyHex, replyText, replyTarget, replyTags)
 
   if isSayingGoodnight:
-    botActive[] = false
+    botActive = false
     echo "やみを停止しました"
 
 type
@@ -269,8 +271,6 @@ type
     seenIds: HashSet[string]
 
 proc readRelayMessages(relay: RelayClient, myKeypair: NostrKeypair, targetHexPubkey: string, state: SharedState) {.async.} =
-  let botActive = new bool
-  botActive[] = true
   while relay.connected:
     try:
       let raw = await relay.ws.receiveStrPacket()
@@ -288,7 +288,7 @@ proc readRelayMessages(relay: RelayClient, myKeypair: NostrKeypair, targetHexPub
           continue
         state.seenIds.incl(evt.id)
         echo "[", relay.url, "] ", evt.content[0 .. min(evt.content.len - 1, 40)]
-        await processEvent(relay, evt, myKeypair, targetHexPubkey, botActive)
+        await processEvent(relay, evt, myKeypair, targetHexPubkey)
     except CatchableError as e:
       echo "[", relay.url, "] エラー: ", e.msg
       break
@@ -296,7 +296,7 @@ proc readRelayMessages(relay: RelayClient, myKeypair: NostrKeypair, targetHexPub
 proc main() {.async.} =
   randomize()
   let myKeypair = keypairFromSecret(nsec)
-
+  
   var targetHexPubkey = ""
   try:
     if targetNpub != "":
