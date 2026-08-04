@@ -8,7 +8,7 @@ load()
 
 let nsec = getEnv("NOSTR_NSEC")
 let targetKeyword = "やみ"
-let targetNpub = getEnv("TEST_TARGET_NPUB")
+let targetNpub = getEnv("NOSTR_TARGET_NPUB")
 
 let commandPattern = re2("(?si)" & targetKeyword & r"(?:([,、 \s]+)(.*))?$")
 let mentionPattern = re2(r"(?si)^(?:nostr:npub1[a-z0-9]+|@\w+|@[^\s,、 ]+)([,、 \s ]?)(.*)")
@@ -93,8 +93,6 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
     if "おはよう" in cmd:
       botActive = true
       echo "やみを開始しました"
-    elif "おやすみ" in cmd:
-      discard
 
   if not botActive:
     return  
@@ -134,14 +132,14 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
     if "天気" in cmd and "教えて" in cmd:
       replies.add(if rand(100) == 0: "縲仙圏豬ｷ驕鍋･槭?螳ｮ逕ｺ縲代?螟ｩ豌励ｒ謨吶∴繧九ｈ\n螟ｩ豌? 陦??髮ｨ\n豌玲ｸｩ諢? 貂ｩ縺九＞縲√◎縺励※蜀ｷ縺溘＞縲√◎縺励※隱ｰ繧ゅ＞縺ｪ縺?\n繧ｳ繝｡繝ｳ繝? 縺ゅ↑縺溘ｂ豁ｻ縺ｬ縺薙→縺ｫ縺ｪ繧?" else: generateRandomWeatherNote())
       
-    let praiseKeywords = ["かわいい", "天才", "すごい", "神", "優秀", "えらい", "好き", "最高"]
+    let praiseKeywords = ["かわいい", "天才", "すごい", "神", "優秀", "えらい", "好き", "最高", "有能"]
     var hasPraise = false
     for kw in praiseKeywords:
       if kw in cmd.toLower():
         hasPraise = true
         break
     if hasPraise:
-      replies.add("、、、ありがとう")
+      replies.add("ありがとう!\nやみもっと頑張るね！")
       
     let negativeKeywords = ["できてない", "だめ", "使えない", "終わってない", "役に立たない", "きらい", "嫌い", "無能"]
     var hasNegative = false
@@ -166,17 +164,21 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
       replies.add(goodevening.sample())
       
     if "おやすみ" in cmd:
-      replies.add(goodnight.sample() & "\nbotActive: " & $botActive)
+      replies.add(goodnight.sample())
       if targetHexPubkey != "" and event.pubkey == targetHexPubkey:
         isSayingGoodnight = true
+        
+    if "死んで" in cmd or "死ね" in cmd:
+      replies.add("、、、")
+      isSayingGoodnight = true
         
     if "疲れた" in cmd:
       replies.add(tired.sample())
       
     if ("しても" in cmd or "でも" in cmd or "ても" in cmd) and "いい？" in cmd:
       let resp = [
-        "いいと思う、、よ？",
-        "絶対、、、だめ"
+        "いいと思うよ？",
+        "絶対だめ！"
       ]
       replies.add(resp.sample())
       
@@ -190,15 +192,15 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
       replies.add(gogonan.sample())
       
     if "自己紹介" in cmd:
-      let resp = "やみです、、、\nあまり役に立てないと思うけど\nよろしくお願いします、、、"
+      let resp = "やみです\nルナからは役に立たないとよく言われていますが\nなんとか役に立てるように頑張ります、、、\nよろしくお願いします、、、"
       replies.add(resp)
       
     if "できること" in cmd:
-      let resp = "[ダイス]といわれたらサイコロを振るよ\n[占い]といわれたら今日の運勢を占うよ\n最小値と最大値を決めて[ランダム]と言ったらその中からやみが数字を選んであげるよ\n選択肢を[, | 、 | と | か]で区切って指定して[どれ]と言ったらその中から代わりに決めてあげる"
+      let resp = "やみにできることならなんでも、、、"
       replies.add(resp)
 
     if "中身" in cmd or "正体" in cmd or "ソース" in cmd:
-      replies.add("恥ずかしいな///\nhttps://github.com/LunaYoineko/yami")
+      replies.add("君ってそういう趣味があったんだ、、、\nhttps://github.com/LunaYoineko/yami")
       
     if "プロフ取得" in cmd:
       if "nostr:npub1" in cmd:
@@ -218,24 +220,24 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
             await relay.getProf(pubkey)    
         
       if perseProf.display_name != "君":
-        replies.add("あなたは " & perseProf.display_name & " だね、、、\n")
-        replies.add("ユーザー名は " & perseProf.name & " で、\n")
+        replies.add("あなたは " & perseProf.display_name & " だね\n")
+        replies.add("ユーザー名は " & perseProf.name & " で\n")
         if perseProf.website != "":
-            replies.add(perseProf.website & " を公開していて、、、\n")
+            replies.add(perseProf.website & " を公開していて\n")
         else:
-            replies.add("特にウェブサイトは公開していなくて、、、\n")
+            replies.add("特にウェブサイトは公開していないみたいで\n")
         if perseProf.lightning_address != "":
-            replies.add(perseProf.lightning_address & " が設定されていて、、、\n")
+            replies.add(perseProf.lightning_address & " が設定されていて\n")
         else:
-            replies.add("お金は受け取らないスタンスで、、、\n")
+            replies.add("お金を受け付けない強者であり、、、\n")
         if perseProf.nip05 != "":
-            replies.add(perseProf.nip05 & " を設定していて、、、\n")
+            replies.add(perseProf.nip05 & " を認証してるかはわからないけど設定していて\n")
         else:
-            replies.add("特にNIP05を設定してなくて、、、\n")
+            replies.add("特にNIP05を設定してない情報弱者で\n")
         if perseProf.about.len > 100:
-            replies.add("自己紹介が長い\n")
+            replies.add("自己紹介が100文字を超える長文の\n")
         else:
-            replies.add("自己紹介が短い\n")
+            replies.add("自己紹介が100文字以下の特にPRがない\n")
         replies.add("人であってるかな？、、、\n")
         replies.add("間違ってたらごめん、、、")
       else:
@@ -298,13 +300,6 @@ proc main() {.async.} =
   let myKeypair = keypairFromSecret(nsec)
   
   var targetHexPubkey = ""
-  try:
-    if targetNpub != "":
-      let decoded = fromBech32(targetNpub)
-      targetHexPubkey = decoded.hex
-      echo "npubが指定されました: ", targetHexPubkey
-  except Exception:
-    targetHexPubkey = ""
 
   let relayUrls = @["wss://relay.yoinekodo.jp", "wss://yabu.me"]
   let pool = newRelayPool(relayUrls)
@@ -316,7 +311,15 @@ proc main() {.async.} =
   let state = SharedState(startTime: getTime().toUnix())
 
   echo "やみ起床中... (npub: ", myKeypair.npub, ")"
-
+  
+  if targetNpub != "":
+    let decoded = fromBech32(targetNpub)
+    targetHexPubkey = decoded.hex
+    echo "npubが指定されました: ", targetHexPubkey
+  else:
+    echo "Npubがない"
+    targetHexPubkey = ""
+    
   var futs: seq[Future[void]] = @[]
   for r in pool.relays:
     if r.connected:
