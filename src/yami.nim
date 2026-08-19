@@ -301,7 +301,7 @@ proc main() {.async.} =
   
   var targetHexPubkey = ""
 
-  let relayUrls = @["wss://relay.yoinekodo.jp", "wss://yabu.me"]
+  let relayUrls = @["wss://relay.yoinekodo.jp","wss://yabu.me"]
   let pool = newRelayPool(relayUrls)
   await pool.connectAll()
 
