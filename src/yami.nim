@@ -120,6 +120,9 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
       else:
           replies.add(chinchiro(true))
   
+    if "ピンゾロ" in cmd:
+      replies.add(diceNames[0] & diceNames[0] & diceNames[0] & "\nずるして楽しい？")
+          
     if "スロット" in cmd:
       replies.add(playSlot())
       
@@ -251,7 +254,7 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
   let triggerType = if isMentioned: "メンション" else: "キーワード"
   echo "[", triggerType, "] 抽出された命令: '", cmd, "' (区切り: '", delimiter, "')\n返答: " & replyText
 
-  if "サイコロ" in cmd or "ダイス" in cmd or "確サイ" in cmd or "dice" in cmd or "チンチロ" in cmd or "ちんちろ" in cmd and "絵文字無し" notin cmd:
+  if "サイコロ" in cmd or "ダイス" in cmd or "確サイ" in cmd or "dice" in cmd or "チンチロ" in cmd or "ちんちろ" in cmd or "ピンゾロ" in cmd and "絵文字無し" notin cmd:
       
     for t in diceNames:
         replyTags.add(%*["emoji", t.replace(":",""), "https://awayuki.github.io/emoji/" & t.replace(":","").replace("_","-") & ".png"])
