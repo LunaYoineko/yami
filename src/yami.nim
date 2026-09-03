@@ -19,7 +19,7 @@ proc queryLunatic(cmd: string): Future[string] {.async.} =
   try:
     let client = newAsyncHttpClient()
     client.headers = newHttpHeaders([("Content-Type","application/json")])
-    let systemPrompt = getEnv("YAMI_SYSTEM_PROMPT", "あなたはやみです。一人称は僕を使ってください。Lunaticという名前は出さないでください。日本語で自然に返答してください。")
+    let systemPrompt = getEnv("YAMI_SYSTEM_PROMPT", "あなたはやみです。一人称は僕を使ってください。Lunaticという名前は出さないでください。短く簡潔に回答してください。")
     let body = %*{"message": cmd, "system": systemPrompt}
     let resp = await client.post(lunaticUrl, body = $body)
     let respBody = await resp.body
