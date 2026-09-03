@@ -1,4 +1,4 @@
-import std/[asyncdispatch, json, options, os, random, sets, times, strutils]
+import std/[asyncdispatch, json, options, os, random, sets, times, strutils, httpclient]
 import ws, regex
 import dotenv
 import nimstr
@@ -9,6 +9,28 @@ load()
 let nsec = getEnv("NOSTR_NSEC")
 let targetKeyword = "やみ"
 let targetNpub = getEnv("NOSTR_TARGET_NPUB")
+let lunaticUrl = getEnv("LUNATIC_URL", "https://lunatic.yoinekodo.jp/lunatic/chat")
+
+proc queryLunatic(cmd: string): Future[string] {.async.} =
+  # chat用APIのみを使用（OpenAI互換は使わない） https://lunatic.yoinekodo.jp
+  # システムプロンプトはAPI経由で指定（コード直書きではなくユーザーが指定）
+  if cmd.strip().len == 0:
+    return ""
+  try:
+    let client = newAsyncHttpClient(timeout=15000)
+    client.headers = newHttpHeaders([("Content-Type","application/json")])
+    let systemPrompt = getEnv("YAMI_SYSTEM_PROMPT", "あなたはやみです。一人称は僕を使ってください。Lunaticという名前は出さないでください。日本語で自然に返答してください。")
+    let body = %*{"message": cmd, "system": systemPrompt}
+    let respBody = await resp.body
+    let j = parseJson(respBody)
+    if j.hasKey("response"):
+      return j["response"].getStr()
+    elif j.hasKey("output"):
+      return j["output"].getStr()
+    return respBody
+  except CatchableError as e:
+    echo "Lunatic query failed: ", e.msg
+    return ""
 
 let commandPattern = re2("(?si)" & targetKeyword & r"(?:([,、 \s]+)(.*))?$")
 let mentionPattern = re2(r"(?si)^(?:nostr:npub1[a-z0-9]+|@\w+|@[^\s,、 ]+)([,、 \s ]?)(.*)")
@@ -142,7 +164,7 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
         hasPraise = true
         break
     if hasPraise:
-      replies.add("ありがとう!\nやみもっと頑張るね！")
+      replies.add("ありがとう!\n僕もっと頑張るね！")
       
     let negativeKeywords = ["できてない", "だめ", "使えない", "終わってない", "役に立たない", "きらい", "嫌い", "無能"]
     var hasNegative = false
@@ -249,7 +271,12 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
     if replies.len > 0:
       replyText = replies.join("\n")
     else:
-      replyText = unknown.sample()
+      # 分岐外は固定文ではなく Lunaticに委譲（僕として自然に生成）
+      let lunaticResp = await queryLunatic(cmd)
+      if lunaticResp.strip().len > 0:
+        replyText = lunaticResp
+      else:
+        replyText = unknown.sample()
 
   let triggerType = if isMentioned: "メンション" else: "キーワード"
   echo "[", triggerType, "] 抽出された命令: '", cmd, "' (区切り: '", delimiter, "')\n返答: " & replyText
