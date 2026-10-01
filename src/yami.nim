@@ -1,4 +1,4 @@
-import std/[asyncdispatch, json, options, os, random, sets, times, strutils, httpclient]
+import std/[asyncdispatch, json, options, os, osproc, random, sets, times, strutils, httpclient]
 import ws, regex
 import dotenv
 import nimstr
@@ -10,6 +10,10 @@ let nsec = getEnv("NOSTR_NSEC")
 let targetKeyword = "やみ"
 let targetNpub = getEnv("NOSTR_TARGET_NPUB")
 let lunaticUrl = getEnv("LUNATIC_URL", "https://lunatic.yoinekodo.jp/lunatic/chat")
+
+let sqliteDbPath = getEnv("SQLITE_DB_PATH", "")
+let relayUrlsEnv = getEnv("RELAY_URLS", "wss://relay.yoinekodo.jp,wss://yabu.me")
+let relayUrls = relayUrlsEnv.split(",")
 
 proc queryLunatic(cmd: string): Future[string] {.async.} =
   # chat用APIのみを使用（OpenAI互換は使わない） https://lunatic.yoinekodo.jp
@@ -35,6 +39,58 @@ proc queryLunatic(cmd: string): Future[string] {.async.} =
 
 let commandPattern = re2("(?si)" & targetKeyword & r"(?:([,、 \s]+)(.*))?$")
 let mentionPattern = re2(r"(?si)^(?:nostr:npub1[a-z0-9]+|@\w+|@[^\s,、 ]+)([,、 \s ]?)(.*)")
+
+proc sendStartMaintenanceAnnouncement(pool: RelayPool, myKeypair: NostrKeypair) {.async.} =
+  try:
+    let noticeText = "毎月1日恒例のリレー大掃除を開始するよ～\n永続的に残しておきたいポストがある時は別のリレーにブロキャしておいてね～"
+    echo "【Nostrアナウンス】メンテナンス開始のポストを送信中..."
+    
+    let sentCount = await pool.sendTextNoteAll(myKeypair.seckeyHex, noticeText)
+    echo "【アナウンス】", sentCount, " 個のリレーに送信完了"
+    await sleepAsync(3000)
+  except CatchableError as e:
+    echo "【アナウンスエラー】: ", e.msg
+
+proc sendEndMaintenanceAnnouncement(pool: RelayPool, myKeypair: NostrKeypair) {.async.} =
+  try:
+    let noticeText = "メンテナンスが終わったよ～"
+    let sentCount = await pool.sendTextNoteAll(myKeypair.seckeyHex, noticeText)
+    echo "【アナウンス】", sentCount, " 個のリレーに送信完了"
+    await sleepAsync(3000)
+  except CatchableError as e:
+    echo "【アナウンスエラー】: ", e.msg
+    
+proc executeMonthlyMaintenance(pool: RelayPool, myKeypair: NostrKeypair) {.async.} =
+  try:
+    echo "【メンテナンス】毎月1日のDBクレンジング及び再起動処理を開始します..."
+    
+    await sendStartMaintenanceAnnouncement(pool, myKeypair)
+    
+    let thirtyDaysAgo = getTime().toUnix() - (30 * 24 * 60 * 60)
+    
+    let downCmd = "docker stop nostr-rs-relay"
+    echo "実行中: ", downCmd
+    if execCmd(downCmd) != 0:
+      echo "【エラー】docker stop に失敗しました"
+      return
+      
+    let sqlQuery = "DELETE FROM event WHERE created_at < " & $thirtyDaysAgo & "; VACUUM;"
+    let sqliteCmd = "sqlite3 " & sqliteDbPath & " \"" & sqlQuery & "\""
+    echo "実行中: ", sqliteCmd
+    if execCmd(sqliteCmd) != 0:
+      echo "【エラー】SQLiteのクレンジング処理に失敗しました"
+      
+    let upCmd = "docker start nostr-rs-relay"
+    echo "実行中: ", upCmd
+    if execCmd(upCmd) != 0:
+      echo "【エラー】docker start に失敗しました"
+      return
+    
+    await sendEndMaintenanceAnnouncement(pool, myKeypair)  
+    
+    echo "【メンテナンス】全ての処理が完了しました。"
+  except CatchableError as e:
+    echo "【メンテナンス例外】: ", e.msg
 
 var botActive* = true
 
@@ -116,6 +172,11 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
     if "おはよう" in cmd:
       botActive = true
       echo "やみを開始しました"
+    elif "DBクリーンアップテスト" in cmd:
+      let pool = newRelayPool(relayUrls)
+      await pool.connectAll()
+      await executeMonthlyMaintenance(pool, myKeypair)
+      return
 
   if not botActive:
     return  
@@ -204,7 +265,8 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
     if ("しても" in cmd or "でも" in cmd or "ても" in cmd) and "いい？" in cmd:
       let resp = [
         "いいと思うよ？",
-        "絶対だめ！"
+        "絶対だめ！",
+        "知らな～い"
       ]
       replies.add(resp.sample())
       
@@ -272,12 +334,13 @@ proc processEvent(relay: RelayClient, event: NostrEvent, myKeypair: NostrKeypair
     if replies.len > 0:
       replyText = replies.join("\n")
     else:
+      replyText = unknown.sample()
       # 分岐外は固定文ではなく Lunaticに委譲（僕として自然に生成）
-      let lunaticResp = await queryLunatic(cmd)
-      if lunaticResp.strip().len > 0:
-        replyText = lunaticResp
-      else:
-        replyText = unknown.sample()
+      #let lunaticResp = await queryLunatic(cmd)
+      #if lunaticResp.strip().len > 0:
+      #  replyText = lunaticResp
+      #else:
+      #  replyText = unknown.sample()
 
   let triggerType = if isMentioned: "メンション" else: "キーワード"
   echo "[", triggerType, "] 抽出された命令: '", cmd, "' (区切り: '", delimiter, "')\n返答: " & replyText
@@ -302,9 +365,40 @@ type
   SharedState = ref object
     startTime: int64
     seenIds: HashSet[string]
+    
+proc monthlyMaintenanceLoop(pool: RelayPool, myKeyPair: NostrKeypair) {.async.} =
+  var lastExecutedMonth = -1
+  while true:
+    let now = getTime().local
+    
+    if now.monthday == 1 and now.month != Month(lastExecutedMonth):
+      await executeMonthlyMaintenance(pool, myKeypair)
+      lastExecutedMonth = ord(now.month)
+    
+    echo "[デバッグ] 月のメンテナンス確認 : ", now.monthday
+      
+    await sleepAsync(3600 * 1000)
+    
+const relayReconnectDelayMs = 2000
+const relayReconnectDelayMaxMs = 60000
 
 proc readRelayMessages(relay: RelayClient, myKeypair: NostrKeypair, targetHexPubkey: string, state: SharedState) {.async.} =
-  while relay.connected:
+  let filter = NostrFilter(kinds: @[1])
+  var retryDelayMs = relayReconnectDelayMs
+
+  while true:
+    if not relay.connected or relay.ws == nil:
+      echo "[", relay.url, "] リレーに再接続を試みます..."
+      await relay.connect()
+      if not relay.connected:
+        echo "[", relay.url, "] 再接続に失敗しました。", retryDelayMs, "ms後に再試行します"
+        await sleepAsync(retryDelayMs)
+        retryDelayMs = min(retryDelayMs * 2, relayReconnectDelayMaxMs)
+        continue
+      retryDelayMs = relayReconnectDelayMs
+      await relay.subscribe("yami_sub", filter)
+      echo "[", relay.url, "] 再接続しました"
+
     try:
       let raw = await relay.ws.receiveStrPacket()
       if raw.len == 0 or raw[0] != '[':
@@ -323,8 +417,14 @@ proc readRelayMessages(relay: RelayClient, myKeypair: NostrKeypair, targetHexPub
         echo "[", relay.url, "] ", evt.content[0 .. min(evt.content.len - 1, 40)]
         await processEvent(relay, evt, myKeypair, targetHexPubkey)
     except CatchableError as e:
-      echo "[", relay.url, "] エラー: ", e.msg
-      break
+      echo "[", relay.url, "] 接続が切断されました: ", e.msg
+      relay.connected = false
+      if relay.ws != nil:
+        try:
+          relay.ws.hangup()
+        except CatchableError:
+          discard
+      relay.ws = nil
 
 proc main() {.async.} =
   randomize()
@@ -332,7 +432,6 @@ proc main() {.async.} =
   
   var targetHexPubkey = ""
 
-  let relayUrls = @["wss://relay.yoinekodo.jp","wss://yabu.me"]
   let pool = newRelayPool(relayUrls)
   await pool.connectAll()
 
@@ -353,9 +452,10 @@ proc main() {.async.} =
     
   var futs: seq[Future[void]] = @[]
   for r in pool.relays:
-    if r.connected:
-      futs.add(readRelayMessages(r, myKeypair, targetHexPubkey, state))
+    futs.add(readRelayMessages(r, myKeypair, targetHexPubkey, state))
 
+  futs.add(monthlyMaintenanceLoop(pool, myKeypair))
+      
   await all(futs)
   await pool.closeAll()
 

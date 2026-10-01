@@ -3,3 +3,6 @@ services:
         build: .
         container_name: yami
         restart: always
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+          - /root/yoinekodo_relay:/root/yoinekodo_relay
