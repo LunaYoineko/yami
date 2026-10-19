@@ -370,10 +370,11 @@ proc monthlyMaintenanceLoop(pool: RelayPool, myKeyPair: NostrKeypair) {.async.} 
   var lastExecutedMonth = -1
   while true:
     let now = getTime().local
+    let currentMonth = ord(now.month)
     
-    if now.monthday == 1 and now.month != Month(lastExecutedMonth):
+    if now.monthday == 1 and currentMonth != lastExecutedMonth:
       await executeMonthlyMaintenance(pool, myKeypair)
-      lastExecutedMonth = ord(now.month)
+      lastExecutedMonth = currentMonth
     
     echo "[デバッグ] 月のメンテナンス確認 : ", now.monthday
       
